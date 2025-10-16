@@ -1,0 +1,446 @@
+:root {
+    --primary-color: #007bff; /* Azul */
+    --secondary-color: #6c757d; /* Cinza */
+    --success-color: #28a745; /* Verde */
+    --danger-color: #dc3545; /* Vermelho */
+    --warning-color: #ffc107; /* Amarelo */
+    --background-color: #f8f9fa;
+    --sidebar-color: #343a40; /* Cinza Escuro */
+    :root {
+        --primary-color: #007bff; /* Azul */
+        --secondary-color: #6c757d; /* Cinza */
+        --success-color: #28a745; /* Verde */
+        --danger-color: #dc3545; /* Vermelho */
+        --warning-color: #ffc107; /* Amarelo */
+        --background-color: #f8f9fa;
+        --sidebar-color: #343a40; /* Cinza Escuro */
+        --card-background: #ffffff;
+        --text-color: #212529;
+        --border-color: #dee2e6;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, rgba(240,248,255,0.95) 0%, rgba(230,240,255,0.95) 40%, rgba(255,255,255,0.95) 100%);
+        display: flex;
+        color: var(--text-color);
+    }
+
+    /* --- Sidebar (Menu Lateral) --- */
+    .sidebar {
+        width: 250px;
+        background-color: var(--sidebar-color); /* escuro */
+        color: #ffffff;
+        padding: 20px 0;
+        height: 100vh;
+        position: fixed;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .logo {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .logo i {
+        color: var(--warning-color);
+        margin-right: 10px;
+    }
+
+    nav a {
+        display: block;
+        padding: 10px 20px;
+        text-decoration: none;
+        color: #e9ecef; /* claro sobre fundo escuro */
+        transition: background-color 0.2s, color 0.2s;
+    }
+
+    nav a:hover {
+        background-color: rgba(255,255,255,0.03);
+        color: #ffffff;
+    }
+
+    nav a.active {
+        background-color: rgba(255,255,255,0.06);
+        color: white;
+        border-left: 5px solid var(--warning-color);
+        padding-left: 15px;
+    }
+
+    nav i {
+        margin-right: 10px;
+    }
+
+    .logout {
+        margin-top: auto;
+        border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* --- Conteúdo Principal --- */
+    .main-content {
+        margin-left: 250px; /* Offset da sidebar */
+        flex-grow: 1;
+        padding: 20px;
+    }
+
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    #module-title {
+        font-size: 1.8rem;
+        font-weight: 300;
+    }
+
+    .user-info span {
+        font-size: 1rem;
+        padding: 5px 10px;
+        background-color: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+    }
+
+    /* --- Módulos e Cards --- */
+    .module {
+        display: none;
+        animation: fadeIn 0.5s;
+    }
+
+    .module.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+        background-color: rgba(255,255,255,0.92); /* mais claro */
+        border: 1px solid rgba(0,0,0,0.06);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 6px 18px rgba(15,15,15,0.06);
+        backdrop-filter: blur(3px) saturate(110%);
+    }
+
+    /* --- KPI Grid (Dashboard) --- */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .kpi-card {
+        text-align: center;
+        padding: 25px;
+    }
+
+    .kpi-card i {
+        font-size: 2rem;
+        color: var(--primary-color);
+        margin-bottom: 10px;
+    }
+
+    .kpi-card h2 {
+        font-size: 2rem;
+        margin: 5px 0 0;
+    }
+
+    .kpi-card p {
+        color: var(--secondary-color);
+        margin: 0;
+    }
+
+    .kpi-card h2.green {
+        color: var(--success-color);
+    }
+
+    .kpi-card.alert h2.red {
+        color: var(--danger-color);
+    }
+
+    /* --- Gráfico (Chart) --- */
+    .charts-and-tables-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .card.chart {
+        min-height: 400px;
+        /* Define uma altura máxima para o contêiner do gráfico */
+        max-height: 500px; 
+        position: relative; /* Importante para o canvas */
+    }
+
+    /* Garantir que o canvas ocupe o espaço definido */
+    #vendasChart {
+        height: 100%; 
+        max-height: 400px; /* Definindo max-height para o canvas */
+    }
+
+    /* NOVOS ESTILOS DO GRÁFICO DINÂMICO */
+    .chart-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .chart-controls h4 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    /* --- Botões Gerais (General Buttons) --- */
+    .btn {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.2s, opacity 0.2s;
+    }
+
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 0.85rem;
+    }
+
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+
+    .btn-secondary {
+        background-color: var(--secondary-color);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+    }
+
+    .btn-success {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background-color: #1e7e34;
+    }
+
+    .btn-danger {
+        background-color: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #bd2130;
+    }
+
+    .module-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .btn-group button {
+        margin-left: 5px;
+    }
+
+    .btn-group button.active {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    /* --- Tabelas --- */
+    .card.table-card {
+        padding: 0;
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    table th, table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    table thead {
+        background-color: var(--background-color);
+    }
+
+    table tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+
+    /* --- Formulários --- */
+    .form-card {
+        padding: 30px;
+        max-width: 900px;
+    }
+
+    /* ESTILOS DE GRID PARA OS FORMULÁRIOS DE CADASTRO/MOVIMENTAÇÃO */
+    #item-form, #movimentacao-form, #config-form {
+        display: grid;
+        /* Divide em colunas (3 para cadastro, 3 para movimentação, 3 para custos) */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    /* Corrige o layout de 3 colunas para o formulário de venda que tem um layout diferente */
+    #venda-form {
+        display: block;
+    }
+
+    /* Garante que os botões (último elemento) ocupem a linha toda */
+    .form-group-botoes {
+        grid-column: 1 / -1; 
+        margin-top: 5px; /* Ajuste para não ficar muito separado */
+    }
+
+    /* Ajusta o grid para o formulário de estoque-minimo, que tem apenas 1 campo + botão */
+    #estoque-minimo-form {
+        grid-template-columns: 1fr auto;
+        align-items: end;
+    }
+    #estoque-minimo-form .form-group-botoes {
+        grid-column: auto; 
+        margin-top: 0;
+    }
+
+
+    .form-group, .form-group-venda {
+        margin-bottom: 0; /* Removido o margin-bottom porque o gap do grid cuida disso */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group label, .form-group-venda label {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group-venda input[type="text"],
+    .form-group-venda input[type="number"],
+    .form-group select, /* Adicionado select para formulários de cadastro/movimentação */
+    .item-selector select {
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        box-sizing: border-box;
+        width: 100%; /* Garante que o input/select ocupe a coluna inteira */
+    }
+
+    .item-selector {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    #tabela-itens-venda {
+        margin-top: 20px;
+    }
+
+    .resumo-venda {
+        margin-top: 20px;
+        padding: 15px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .resumo-venda .total {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+
+    .mt-15 {
+        margin-top: 15px;
+    }
+
+    /* ------------------ Responsividade ------------------ */
+    @media (max-width: 992px) {
+        .sidebar {
+            width: 70px;
+            padding: 10px 0;
+        }
+        .logo span { display: none; }
+        .logo { font-size: 1.1rem; }
+        nav a { padding: 8px 12px; font-size: 0.9rem; }
+        .main-content { margin-left: 70px; padding: 15px; }
+        header { flex-direction: column; align-items: flex-start; gap: 10px; }
+        #module-title { font-size: 1.2rem; }
+        .card.chart { min-height: 300px; }
+        #vendasChart { max-height: 300px; }
+    }
+
+    @media (max-width: 600px) {
+        body { flex-direction: column; }
+        .sidebar { position: relative; width: 100%; height: auto; display: flex; flex-direction: row; overflow-x: auto; }
+        .sidebar nav { display: flex; gap: 6px; }
+        .sidebar .logo { display: flex; align-items: center; padding: 8px; }
+        .main-content { margin-left: 0; padding: 10px; }
+        .module-header { flex-direction: column; align-items: stretch; gap: 8px; }
+        .btn { width: 100%; }
+        .form-card { padding: 15px; }
+        table th, table td { padding: 8px; font-size: 0.9rem; }
+        .kpi-grid { grid-template-columns: 1fr 1fr; }
+        .card.chart { min-height: 220px; }
+    }
+
+    /* Ensure canvas scales nicely */
+    #vendasChart { width: 100% !important; height: auto !important; }
+
+    /* Tipo badges in history */
+    .tipo-entrada {
+        color: #155724;
+        background-color: #d4edda;
+        border-radius: 4px;
+        padding: 4px 8px;
+        display: inline-block;
+    }
+    .tipo-saida {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-radius: 4px;
+        padding: 4px 8px;
+        display: inline-block;
+    }
+
+    /* Centralizar texto na tabela de movimentações e ajustar alinhamento vertical */
+    #tabela-movimentacoes th, #tabela-movimentacoes td {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    /* Garantir que badges dentro da célula fiquem centralizados */
+    #tabela-movimentacoes td .tipo-entrada, #tabela-movimentacoes td .tipo-saida {
+        margin: 0 auto;
+    }
+}

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão | Herkon</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-guitar"></i>
+            <span>Herkon</span>
+        </div>
+        <nav>
+            <a href="#" class="nav-link active" data-module="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="#" class="nav-link" data-module="vendas"><i class="fas fa-shopping-cart"></i> Vendas</a>
+            <a href="#" class="nav-link" data-module="estoque"><i class="fas fa-warehouse"></i> Estoque</a>
+            <a href="#" class="nav-link" data-module="custos"><i class="fas fa-dollar-sign"></i> Precificação/Custos</a>
+            <a href="#" class="nav-link" data-module="relatorios"><i class="fas fa-chart-line"></i> Relatórios</a>
+            <a href="#" class="nav-link" data-module="configuracoes"><i class="fas fa-cog"></i> Configurações</a>
+            <a href="#" class="logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <h1 id="module-title">Dashboard de Gestão - Herkon</h1>
+            <div class="user-info">
+                <span>Olá, Sr. Herbert!</span>
+            </div>
+        </header>
+
+        <div id="dashboard" class="module active">
+            <div class="kpi-grid">
+                <div class="kpi-card"><i class="fas fa-hand-holding-usd"></i><p>Receita Total (30 dias)</p><h2 id="kpi-receita">R$ 0,00</h2></div>
+                <div class="kpi-card"><i class="fas fa-money-check-alt"></i><p>Lucro Bruto (30 dias)</p><h2 id="kpi-lucro" class="green">R$ 0,00</h2></div>
+                <div class="kpi-card"><i class="fas fa-cubes"></i><p>Acessórios em Estoque</p><h2 id="kpi-estoque-total">0 Itens</h2></div>
+                <div class="kpi-card alert"><i class="fas fa-exclamation-triangle"></i><p>Alertas de Estoque Mínimo</p><h2 id="kpi-alertas" class="red">0 Produtos</h2></div>
+            </div>
+            
+            <div class="charts-and-tables-grid">
+                <div class="card chart full-width">
+                    <div class="chart-controls">
+                        <h4>Receita Histórica</h4>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-secondary active" data-period="mes">Mês</button>
+                            <button class="btn btn-sm btn-secondary" data-period="ano">Ano</button>
+                            <button class="btn btn-sm btn-secondary" data-period="5anos">Últimos 5 Anos</button>
+                        </div>
+                    </div>
+                    
+                    <canvas id="vendasChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="vendas" class="module">
+            <div class="module-header">
+                <h2>Histórico de Vendas</h2>
+                <button class="btn btn-primary" id="btn-nova-venda"><i class="fas fa-plus"></i> Novo Pedido</button>
+            </div>
+            
+            <div id="form-venda" class="card form-card full-width" style="display: none;">
+                <h3>Criar Novo Pedido de Venda</h3>
+                <form id="venda-form">
+                    <div class="form-group-venda">
+                        <label for="cliente_nome">Nome do Cliente:</label>
+                        <input type="text" id="cliente_nome" required>
+                    </div>
+                    <div class="form-group-venda">
+                        <label for="km_total">KM Total da Entrega (ida e volta):</label>
+                        <input type="number" id="km_total" min="0" value="0" required>
+                    </div>
+
+                    <h4>Itens do Pedido:</h4>
+                    <div class="item-selector">
+                        <select id="select-item-estoque">
+                            <option value="">-- Selecione um Acessório --</option>
+                        </select>
+                        <input type="number" id="qtd-item" min="1" value="1" style="width: 80px;">
+                        <button type="button" class="btn btn-secondary" id="btn-adicionar-item"><i class="fas fa-cart-plus"></i> Adicionar</button>
+                    </div>
+
+                    <table id="tabela-itens-venda">
+                        <thead><tr><th>Acessório</th><th>Preço Unit.</th><th>Qtd</th><th>Subtotal</th><th>Ação</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+
+                    <div class="resumo-venda">
+                        <p>Custo de Gasolina Estimado: <span id="custo-gasolina-display">R$ 0,00</span></p>
+                        <p>Valor Total dos Itens: <span id="total-itens-display">R$ 0,00</span></p>
+                        <p class="total">Total Final do Pedido: <span id="total-final-display">R$ 0,00</span></p>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Finalizar Pedido de Venda</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-venda">Cancelar</button>
+                </form>
+            </div>
+
+            <div class="card table-card full-width">
+                 <table id="tabela-vendas">
+                    <thead><tr><th>ID</th><th>Data</th><th>Cliente</th><th>KM</th><th>Valor Total</th><th>Custo Gasolina</th><th>Lucro Estimado</th></tr></thead>
+                    <tbody></tbody>
+                 </table>
+            </div>
+        </div>
+
+        <div id="estoque" class="module">
+            <div class="module-header">
+                <h2>Controle de Estoque</h2>
+                <div>
+                    <button class="btn btn-secondary" id="btn-movimentacao"><i class="fas fa-exchange-alt"></i> Movimentação Manual</button>
+                    <button class="btn btn-primary" id="btn-add-item"><i class="fas fa-plus"></i> Novo Acessório</button>
+                </div>
+            </div>
+            
+            <div id="form-cadastro" class="card form-card full-width" style="display: none;">
+                <h3 id="form-cadastro-title">Adicionar Novo Acessório</h3>
+                <form id="item-form">
+                    <input type="hidden" id="item-id-edit">
+                    <div class="form-group"><label for="nome">Nome:</label><input type="text" id="nome" required></div>
+                    <div class="form-group"><label for="sku">SKU/Código:</label><input type="text" id="sku" required></div>
+                    <div class="form-group"><label for="custo">Custo Unit. (R$):</label><input type="number" id="custo" step="0.01" required></div>
+                    <div class="form-group"><label for="estoque_atual">Estoque Atual:</label><input type="number" id="estoque_atual" required readonly></div>
+                    <div class="form-group"><label for="preco_venda">Preço de Venda (R$):</label><input type="number" id="preco_venda" step="0.01" required></div>
+                    <div class="form-group-botoes">
+                        <button type="submit" class="btn btn-success" id="btn-salvar-item">Salvar Acessório</button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancelar-cadastro">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="form-movimentacao" class="card form-card full-width" style="display: none;">
+                <h3>Movimentação Manual de Estoque</h3>
+                <form id="movimentacao-form">
+                    <div class="form-group">
+                        <label for="mov-item-select">Acessório:</label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input list="mov-items-list" id="mov-item-select" placeholder="Digite para buscar..." style="flex:1;" required />
+                            <datalist id="mov-items-list"></datalist>
+                            <button type="button" class="btn btn-secondary" id="mov-item-search-btn" title="Buscar" style="padding:6px 8px;"><i class="fas fa-search"></i></button>
+                        </div>
+                        <small class="small-text">Comece a digitar para encontrar um acessório (suporta teclado e toque).</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-tipo">Tipo de Movimentação:</label>
+                        <select id="mov-tipo" required>
+                            <option value="entrada">Entrada (Compra/Ajuste Positivo)</option>
+                            <option value="saida">Saída (Perda/Uso Interno)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-quantidade">Quantidade:</label>
+                        <input type="number" id="mov-quantidade" min="1" required>
+                    </div>
+                    <div class="form-group-botoes">
+                        <button type="submit" class="btn btn-success">Registrar Movimentação</button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancelar-movimentacao">Cancelar</button>
+                    </div>
+                </form>
+                <div id="mov-relatorio-container" style="display:none; margin-top:12px;">
+                    <label for="mov-relatorio">Relatório da Saída (motivo):</label>
+                    <textarea id="mov-relatorio" rows="3" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px;"></textarea>
+                    <small class="small-text">Preencha o motivo da saída para registrar movimentações de saída.</small>
+                </div>
+            </div>
+
+            <div class="card table-card full-width">
+                <table id="tabela-estoque">
+                    <thead><tr><th>Nome</th><th>SKU</th><th>Estoque</th><th>Custo Unit.</th><th>Preço Venda</th><th>Ação</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="card table-card full-width">
+                <h3>Histórico de Movimentação de Estoque</h3>
+                <table id="tabela-movimentacoes">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Item</th>
+                            <th>Tipo</th>
+                            <th>Qtd Anterior</th>
+                            <th>Qtd Movimentação</th>
+                            <th>Qtd Atual</th>
+                            <th>Data</th>
+                            <th>Usuário</th>
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="custos" class="module">
+            <h2>Configuração de Precificação e Custos</h2>
+            
+            <div class="card form-card full-width">
+                <h3>Regras de Custo de Entrega e Margem Padrão</h3>
+                <form id="config-form">
+                    <div class="form-group"><label for="preco_litro">Preço Atual do Litro de Gasolina (R$):</label><input type="number" id="preco_litro" step="0.01" value="6.00" required></div>
+                    <div class="form-group"><label for="consumo_medio">Consumo Médio do Veículo (Km/Litro):</label><input type="number" id="consumo_medio" value="12" required></div>
+                    <div class="form-group"><label for="margem_padrao">Margem de Lucro Padrão (%) (Sugestão):</label><input type="number" id="margem_padrao" value="50" required></div>
+                    <div class="form-group-botoes">
+                        <button type="submit" class="btn btn-success">Salvar Configurações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="relatorios" class="module">
+            <h2>Relatórios de Desempenho e Logística</h2>
+            
+            <div class="card table-card full-width">
+                <h3><i class="fas fa-funnel-dollar"></i> Lucratividade por Item Vendido</h3>
+                <table id="tabela-lucratividade">
+                    <thead>
+                        <tr>
+                            <th>Acessório</th>
+                            <th>Qtd. Vendida</th>
+                            <th>Receita Bruta</th>
+                            <th>CMV Total</th>
+                            <th>Lucro Bruto (R$)</th>
+                            <th>Margem (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="card table-card full-width">
+                <h3><i class="fas fa-sync-alt"></i> Giro de Estoque (30 dias)</h3>
+                <table id="tabela-giro">
+                    <thead>
+                        <tr>
+                            <th>Acessório</th>
+                            <th>Estoque Atual</th>
+                            <th>Qtd. Vendida (30 dias)</th>
+                            <th>Estoque em Dias</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="configuracoes" class="module">
+            <h2>Configurações do Sistema</h2>
+            
+            <div class="charts-and-tables-grid">
+                <div class="card full-width">
+                    <h3><i class="fas fa-boxes"></i> Regra de Alerta de Estoque</h3>
+                    <form id="estoque-minimo-form">
+                        <div class="form-group">
+                            <label for="estoque_minimo">Estoque Mínimo Global (unidades para alerta):</label>
+                            <input type="number" id="estoque_minimo" min="1" value="10" required>
+                        </div>
+                        <div class="form-group-botoes">
+                            <button type="submit" class="btn btn-success">Salvar Regra de Estoque</button>
+                        </div>
+                    </form>
+                    <p class="small-text">O alerta de estoque mínimo no Dashboard será disparado para itens abaixo deste valor.</p>
+                </div>
+                
+                <div class="card full-width">
+                    <h3><i class="fas fa-users-cog"></i> Gestão de Usuários</h3>
+                    <table id="tabela-usuarios">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Permissão</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>1</td><td>Sr. Herbert</td><td>Administrador</td></tr>
+                            <tr><td>2</td><td>Vendedor 1</td><td>Vendas</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="small-text mt-15">Funcionalidade de mockup. Em um sistema real, haveria botões para Adicionar/Editar.</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
+    <script src="script.js"></script>
+</body>
+</html>
