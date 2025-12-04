@@ -1,775 +1,964 @@
-document.addEventListener('DOMContentLoaded', () => {
-
-    // =========================================================
-    // === 0. VARIÁVEIS DO MODAL ===
-    // =========================================================
-    const alertaModal = document.getElementById('meuAlerta');
-    const modalTitle = document.getElementById('modal-title');
-    const modalMessage = document.getElementById('modal-message');
-    const modalIcon = document.getElementById('modal-icon');
-    const modalActions = document.getElementById('modal-actions');
+document.addEventListener('DOMContentLoaded', function() {
+    // --- VARIÁVEIS GLOBAIS DO DOM ---
+    const navLinks = document.querySelectorAll('.nav-link');
+    const modules = document.querySelectorAll('.module');
+    const moduleTitle = document.getElementById('module-title');
     
-    // Variável temporária para ações de confirmação/redirecionamento
-    let acaoConfirmacao; 
+    // Configurações
+    const estoqueMinimoForm = document.getElementById('estoque-minimo-form');
+    const estoqueMinimoInput = document.getElementById('estoque_minimo');
 
-    // =========================================================
-    // === FUNÇÕES DE ALERTA MODAL ===
-    // =========================================================
+    // Relatórios
+    const tabelaLucratividadeBody = document.querySelector('#tabela-lucratividade tbody');
+    const tabelaGiroBody = document.querySelector('#tabela-giro tbody');
 
-    /**
-     * Exibe o alerta modal personalizado.
-     * @param {string} titulo - Título do alerta.
-     * @param {string} mensagem - Mensagem detalhada (pode conter tags HTML como <b>).
-     * @param {string} icone - Nome do ícone do Material Icons.
-     * @param {string} [botoesHTML] - HTML dos botões de ação (opcional).
-     */
-    function mostrarAlerta(titulo, mensagem, icone, botoesHTML) {
-        modalTitle.textContent = titulo;
-        modalIcon.textContent = icone;
-        modalMessage.innerHTML = mensagem; // Usa innerHTML para processar <b>
-        
-        if (botoesHTML) {
-            modalActions.innerHTML = botoesHTML;
-        } else {
-            modalActions.innerHTML = `<button class="btn primary-btn" onclick="fecharAlerta()">OK</button>`;
-        }
-        
-        alertaModal.classList.add('active');
-    }
+    // Estoque
+    const btnAddItem = document.getElementById('btn-add-item');
+    const btnCancelar = document.getElementById('btn-cancelar-cadastro');
+    const formCadastro = document.getElementById('form-cadastro');
+    const formCadastroTitle = document.getElementById('form-cadastro-title');
+    const itemForm = document.getElementById('item-form');
+    const tabelaEstoqueBody = document.querySelector('#tabela-estoque tbody');
+    const itemIdEdit = document.getElementById('item-id-edit');
+    const estoqueAtualInput = document.getElementById('estoque_atual');
+    const btnMovimentacao = document.getElementById('btn-movimentacao');
+    const btnCancelarMovimentacao = document.getElementById('btn-cancelar-movimentacao');
+    const formMovimentacao = document.getElementById('form-movimentacao');
+    const movItemSelect = document.getElementById('mov-item-select');
+    const movForm = document.getElementById('movimentacao-form');
+    
+    // Vendas
+    const btnNovaVenda = document.getElementById('btn-nova-venda');
+    const btnCancelarVenda = document.getElementById('btn-cancelar-venda');
+    const formVenda = document.getElementById('form-venda');
+    const vendaForm = document.getElementById('venda-form');
+    const selectItemEstoque = document.getElementById('select-item-estoque');
+    const btnAdicionarItem = document.getElementById('btn-adicionar-item');
+    const tabelaItensVendaBody = document.querySelector('#tabela-itens-venda tbody');
+    const kmTotalInput = document.getElementById('km_total');
+    const custoGasolinaDisplay = document.getElementById('custo-gasolina-display');
+    const totalItensDisplay = document.getElementById('total-itens-display');
+    const totalFinalDisplay = document.getElementById('total-final-display');
+    const tabelaVendasBody = document.querySelector('#tabela-vendas tbody');
+    
+    // Custos
+    const configForm = document.getElementById('config-form');
 
-    /**
-     * Fecha o alerta modal e executa a ação de confirmação pendente.
-     */
-    window.fecharAlerta = function() {
-        alertaModal.classList.remove('active');
-        
-        if (typeof acaoConfirmacao === 'function') {
-            acaoConfirmacao();
-            acaoConfirmacao = null; // Limpa após execução
-        }
+    // GRÁFICO DINÂMICO
+    const chartControlButtons = document.querySelectorAll('.chart-controls .btn-group button');
+    let activeChartPeriod = 'mes'; // Padrão
+    let vendasChartInstance = null;
+    
+    let carrinho = [];
+
+    // --- VARIÁVEIS DE CONFIGURAÇÃO (LocalStorage) ---
+    let config = JSON.parse(localStorage.getItem('precificacaoConfig')) || {
+        precoLitro: 6.00,
+        consumoMedio: 12,
+        margemPadrao: 50,
+        estoqueMinimoAlerta: 10
     };
 
+    // Campos do formulário de item (existem no DOM)
+    const custoInput = document.getElementById('custo');
+    const precoVendaInput = document.getElementById('preco_venda');
 
-    // =========================================================
-    // === 1. Variáveis de Estado (Pedidos Persistem, Preços Fixos) ===
-    // =========================================================
-    
-    // Membros pré-salvos por Família
-    const membrosIniciaisPorFamilia = {
-        'Kelvin': ['Kelvin', 'Elaine', 'Livia', 'Levi'],
-        'Matheus': ['Matheus', 'Greice', 'Abner'],
-        'Moisés': ['Moisés', 'Ana'],
-        'Santos': ['Santos', 'Joselia']
-    };
+    // Calcula e aplica preço sugerido a partir da margem padrão somente quando estivermos criando um novo item
+    function applyDefaultMarginToPrice() {
+        // Se estivermos editando (itemIdEdit preenchido) não sobrescreve
+        if (itemIdEdit && itemIdEdit.value) return;
+        if (!custoInput || !precoVendaInput) return;
 
-    // Dados iniciais (Estoque e Preços FIXOS no código)
-    const initialEstoque = [
-        { sabor: 'Bacon com requeijão', preco: 4.50 },
-        { sabor: 'Bacon com mussarela', preco: 4.30 },
-        { sabor: 'Carne', preco: 3.50 },
-        { sabor: 'Queijo', preco: 3.90 },
-        { sabor: 'Atum com mussarela', preco: 4.80 },
-        { sabor: 'Frango com mussarela', preco: 4.20 },
-        { sabor: 'Frango com requeijão', preco: 4.50 },
-        { sabor: 'Mussarela', preco: 3.90 },
-    ];
-    
-    // --- Lógica de Inicialização ---
-    
-    let estoque = initialEstoque; 
-    let pedidoGeral = JSON.parse(localStorage.getItem('esfirrasPedidoGeral')) || {};
-    
-    let membroEmEdicao = null; 
+        const custoVal = parseFloat(custoInput.value);
+        const margem = (config && config.margemPadrao) ? parseFloat(config.margemPadrao) : 0;
 
-    // === 2. Seletores de Elementos ===
-    const navLinks = document.querySelectorAll('.mobile-nav .nav-item');
-    const pageSections = document.querySelectorAll('.page-section');
-    
-    // Membro/Família Selectors
-    const selectFamilia = document.getElementById('select-familia');
-    const membrosContainer = document.getElementById('membros-container'); 
-    const membrosNoPedidoUl = document.getElementById('clientes-no-pedido'); 
-    
-    // Estoque Editor Selectors
-    const estoqueEditorDiv = document.getElementById('estoque-editor');
-    const salvarPrecosBtn = document.getElementById('salvarPrecosBtn');
-    const addSaborBtn = document.getElementById('addSaborBtn');
-    
-    // Pedido Selectors
-    const pedidoMembroTitle = document.getElementById('pedido-cliente-title'); 
-    const estoqueList = document.getElementById('estoque-list');
-    const salvarPedidoBtn = document.getElementById('salvarPedidoBtn');
-    
-    // Resumo Selectors
-    const resumoTotalContainer = document.getElementById('resumo-total-container');
-    const gerarPdfBtn = document.getElementById('gerarPdfBtn');
-
-    // === 3. Funções de Utilidade e Navegação ===
-
-    function saveState() {
-        localStorage.setItem('esfirrasPedidoGeral', JSON.stringify(pedidoGeral));
-    }
-
-    function goToPage(pageId) {
-        pageSections.forEach(section => section.style.display = 'none');
-        navLinks.forEach(link => link.classList.remove('active'));
-
-        const targetSection = document.getElementById(pageId);
-        if (targetSection) targetSection.style.display = 'block';
-
-        const targetLink = document.querySelector(`.mobile-nav .nav-item[data-page="${pageId}"]`);
-        if (targetLink) targetLink.classList.add('active');
-
-        // Ações específicas ao mudar de página
-        if (pageId === 'clientes-mobile') {
-            renderMembrosNoPedido(); 
-            renderMembrosBotoes(selectFamilia.value); 
-        } else if (pageId === 'estoque-mobile') {
-            renderEstoqueEditor();
-        } else if (pageId === 'resumo-mobile') {
-            renderResumoTotal();
-        }
-    }
-
-    // Navegação via menu de rodapé
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const pageId = link.getAttribute('data-page');
-            goToPage(pageId);
-        });
-    });
-
-    // === 4. Lógica da Seção de Membros (Seleção Rápida por Botão) ===
-
-    selectFamilia.addEventListener('change', (e) => {
-        const familia = e.target.value;
-        renderMembrosBotoes(familia);
-    });
-
-    function renderMembrosBotoes(familia) {
-        membrosContainer.innerHTML = ''; 
-        
-        if (!familia) {
-            membrosContainer.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Selecione uma família acima.</p>';
+        if (isNaN(custoVal) || custoVal <= 0 || isNaN(margem)) {
+            // Limpa apenas se estiver vazio — permite que usuário apague o campo manualmente
+            if (!precoVendaInput.value) precoVendaInput.value = '';
             return;
         }
 
-        const membros = membrosIniciaisPorFamilia[familia];
-        
-        if (membros) {
-            membros.forEach(membro => {
-                const button = document.createElement('button');
-                button.classList.add('membro-btn');
-                
-                // Marca como ativo se tiver um pedido salvo (mesmo que vazio)
-                const isActive = pedidoGeral[familia] && pedidoGeral[familia][membro];
-
-                button.textContent = membro;
-                button.dataset.familia = familia;
-                button.dataset.membro = membro; 
-                
-                button.addEventListener('click', (e) => {
-                    const f = e.currentTarget.dataset.familia;
-                    const m = e.currentTarget.dataset.membro; 
-                    
-                    // Inicializa a estrutura do membro se não existir
-                    if (!pedidoGeral[f]) pedidoGeral[f] = {};
-                    if (!pedidoGeral[f][m]) {
-                        pedidoGeral[f][m] = { itens: {} };
-                        saveState(); 
-                    }
-                    startPedido(f, m);
-                });
-
-                membrosContainer.appendChild(button);
-            });
-        }
+        const precoSugerido = custoVal * (1 + margem / 100);
+        // Preenche o campo, mas o usuário pode alterar/remover manualmente
+        precoVendaInput.value = precoSugerido.toFixed(2);
     }
 
-
-    function renderMembrosNoPedido() {
-        membrosNoPedidoUl.innerHTML = ''; 
-        let hasActiveMembros = false;
-
-        const familiasOrdenadas = Object.keys(pedidoGeral).sort();
-
-        familiasOrdenadas.forEach(familia => {
-            const membrosOrdenados = Object.keys(pedidoGeral[familia]).sort(); 
-            
-            membrosOrdenados.forEach(membro => {
-                let totalEsfirras = 0;
-                const itens = pedidoGeral[familia][membro]?.itens;
-
-                if (itens) {
-                   for (const sabor in itens) {
-                        totalEsfirras += itens[sabor];
-                   }
-                }
-                
-                // Exibe APENAS se o membro tiver feito pelo menos 1 esfirra
-                if (totalEsfirras > 0) {
-                    const li = document.createElement('li');
-                    
-                    li.innerHTML = `
-                        <div>
-                            <strong>${membro}</strong> (Família: ${familia}) 
-                            <small>| ${totalEsfirras} Esfirras</small>
-                        </div>
-                        <div>
-                            <button class="btn-edit" data-familia="${familia}" data-membro="${membro}">
-                                <span class="material-icons">edit</span>
-                            </button>
-                            <button class="btn-delete" data-familia="${familia}" data-membro="${membro}">
-                                <span class="material-icons">delete</span>
-                            </button>
-                        </div>
-                    `;
-                    membrosNoPedidoUl.appendChild(li); 
-                    hasActiveMembros = true;
-                }
-            });
-        });
-
-        if (!hasActiveMembros) {
-            membrosNoPedidoUl.innerHTML = '<li style="color: var(--text-secondary);">Nenhum Membro com pedido ativo.</li>'; 
-            gerarPdfBtn.disabled = true;
-        } else {
-            gerarPdfBtn.disabled = false;
-        }
-        
-        document.querySelectorAll('.btn-edit').forEach(btn => {
-            btn.addEventListener('click', (e) => startPedido(e.currentTarget.dataset.familia, e.currentTarget.dataset.membro)); 
-        });
-        document.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => deleteMembroPedidoConfirm(e.currentTarget.dataset.familia, e.currentTarget.dataset.membro)); 
-        });
-    }
-    
-    /**
-     * Usa alerta modal sem asteriscos.
-     */
-    function deleteMembroPedidoConfirm(familia, membro) {
-        acaoConfirmacao = () => deleteMembroPedido(familia, membro);
-        
-        const botoesHTML = `
-            <button class="btn danger-btn" onclick="fecharAlerta()">Confirmar Limpeza</button>
-            <button class="btn secondary-btn" onclick="acaoConfirmacao = null; fecharAlerta()">Cancelar</button>
-        `;
-        
-        mostrarAlerta(
-            "Limpar Pedido",
-            `Tem certeza que deseja <b>LIMPAR (remover todas as esfirras)</b> do pedido de <b>${membro}</b> da Família <b>${familia}</b>?`,
-            "delete_forever",
-            botoesHTML
-        );
+    // Escuta alterações no custo para sugerir preço automaticamente
+    if (custoInput) {
+        custoInput.addEventListener('input', applyDefaultMarginToPrice);
     }
 
-    function deleteMembroPedido(familia, membro) {
-        // Limpa o pedido (volta para itens: {})
-        pedidoGeral[familia][membro].itens = {}; 
-        
-        // Verifica se este membro está na lista inicial da família.
-        const isMembroInicial = membrosIniciaisPorFamilia[familia] && membrosIniciaisPorFamilia[familia].includes(membro);
-        
-        if (!isMembroInicial) {
-             delete pedidoGeral[familia][membro];
-        }
-        
-        // Remove a família do pedidoGeral se não houver mais membros nela
-        if (Object.keys(pedidoGeral[familia]).length === 0) {
-            delete pedidoGeral[familia];
-        }
-        
-        saveState(); 
-        renderMembrosNoPedido(); 
-        mostrarAlerta("Pedido Limpo!", `O pedido de ${membro} foi <b>limpo</b> com sucesso.`, "check_circle");
-    }
-    
-    // === 5. Lógica da Edição de Estoque (Preços) ===
+    // ----------------------------------------------------------------------------------
+    // I. FUNÇÕES DO DASHBOARD (GRÁFICO DINÂMICO)
+    // ----------------------------------------------------------------------------------
 
-    function renderEstoqueEditor() {
-        estoqueEditorDiv.innerHTML = `
-            <h2>⚠️ Atenção: Preços FIXOS</h2>
-            <p>Os preços são fixos no código e não podem ser salvos permanentemente aqui. As alterações feitas <b>serão perdidas ao recarregar</b>.</p>
-            <table>
-                <thead>
-                    <tr><th>Sabor</th><th>Preço (R$)</th><th>Ações</th></tr>
-                </thead>
-                <tbody id="estoque-table-body">
-                </tbody>
-            </table>
-        `;
-        const tbody = document.getElementById('estoque-table-body');
-        
-        estoque.forEach((item, index) => {
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td><input type="text" class="input-sabor" value="${item.sabor}" data-index="${index}"></td>
-                <td><input type="number" step="0.01" class="input-preco" value="${item.preco.toFixed(2)}" data-index="${index}"></td>
-                <td><button class="btn-remove-sabor" data-index="${index}"><span class="material-icons">delete</span></button></td>
-            `;
-        });
-        
-        document.querySelectorAll('.btn-remove-sabor').forEach(btn => {
-            btn.addEventListener('click', (e) => removeSaborConfirm(parseInt(e.currentTarget.dataset.index)));
-        });
-    }
-    
-    /**
-     * Usa alerta modal sem asteriscos.
-     */
-    function removeSaborConfirm(index) {
-        const sabor = estoque[index].sabor;
-        acaoConfirmacao = () => removeSabor(index);
+    // Auxiliar: Agrega vendas reais (localStorage 'historicoVendas') por dia/mês/ano
+    function aggregateSalesData(period) {
+        const vendas = JSON.parse(localStorage.getItem('historicoVendas')) || [];
+        const map = new Map(); // chave (ISO date string) -> receita
 
-        const botoesHTML = `
-            <button class="btn danger-btn" onclick="fecharAlerta()">Confirmar Remoção</button>
-            <button class="btn secondary-btn" onclick="acaoConfirmacao = null; fecharAlerta()">Cancelar</button>
-        `;
-        
-        mostrarAlerta(
-            "Remover Sabor",
-            `Tem certeza que deseja remover o sabor <b>${sabor}</b>? Lembre-se, a remoção será perdida ao recarregar a página.`,
-            "error_outline",
-            botoesHTML
-        );
-    }
+        // Normaliza e agrupa cada pedido
+        vendas.forEach(pedido => {
+            // tenta extrair data no formato ISO a partir do campo 'data'
+            // o campo 'data' foi gravado como toLocaleDateString('pt-BR') no momento da venda
+            // tentaremos parsear com Luxon usando o formato dd/MM/yyyy
+            let dt = null;
+            try {
+                dt = luxon.DateTime.fromFormat(pedido.data, 'dd/LL/yyyy');
+                if (!dt.isValid) dt = luxon.DateTime.fromISO(pedido.data);
+            } catch (e) {
+                dt = luxon.DateTime.fromISO(pedido.data);
+            }
 
-    function removeSabor(index) {
-        estoque.splice(index, 1);
-        renderEstoqueEditor();
-        mostrarAlerta("Sucesso", "Sabor removido da lista (Temporariamente).", "check_circle");
-    }
-    
-    addSaborBtn.addEventListener('click', () => {
-        estoque.push({ sabor: 'Novo Sabor', preco: 0.00 });
-        renderEstoqueEditor();
-        mostrarAlerta("Novo Sabor", "Sabor 'Novo Sabor' adicionado. Edite o nome e preço na tabela.", "info");
-    });
+            if (!dt || !dt.isValid) return; // ignora entradas inválidas
 
-    /**
-     * Usa alerta modal sem asteriscos.
-     */
-    salvarPrecosBtn.addEventListener('click', () => {
-        const newEstoque = [];
-        let valid = true;
-        
-        document.querySelectorAll('#estoque-table-body tr').forEach(row => {
-            const saborInput = row.querySelector('.input-sabor');
-            const precoInput = row.querySelector('.input-preco');
-            
-            const sabor = saborInput.value.trim();
-            const preco = parseFloat(precoInput.value);
-
-            if (!sabor || isNaN(preco) || preco < 0) {
-                valid = false;
-                saborInput.style.border = '1px solid var(--danger-color)';
-                precoInput.style.border = '1px solid var(--danger-color)';
-                return;
+            let key;
+            if (period === 'mes') {
+                key = dt.toISODate(); // agrupar por dia (YYYY-MM-DD)
+            } else if (period === 'ano') {
+                key = dt.toFormat('yyyy-LL'); // agrupar por mês (YYYY-MM)
+            } else if (period === '5anos') {
+                key = dt.toFormat('yyyy'); // agrupar por ano (YYYY)
             } else {
-                saborInput.style.border = '1px solid var(--border-color)';
-                precoInput.style.border = '1px solid var(--border-color)';
+                key = dt.toISODate();
             }
 
-            newEstoque.push({ sabor, preco });
+            const receita = parseFloat(pedido.totalFinal) || 0;
+            map.set(key, (map.get(key) || 0) + receita);
         });
 
-        if (valid) {
-            estoque = newEstoque; 
-            mostrarAlerta("Sucesso!", "Tabela de preços atualizada com sucesso (Apenas para esta sessão).", "check_circle");
-        } else {
-            mostrarAlerta("Erro de Preenchimento", "Por favor, preencha todos os campos <b>Sabor</b> e <b>Preço</b> corretamente.", "warning");
+        // Para garantir que períodos sem vendas apareçam no gráfico, construímos a sequência de labels
+        const labels = [];
+        const dataPoints = [];
+        let unit = '';
+        const now = luxon.DateTime.now();
+
+        if (period === 'mes') {
+            unit = 'day';
+            // últimos 30 dias + dia atual (31 pontos: 30 dias anteriores + hoje)
+            for (let i = 30; i >= 0; i--) {
+                const d = now.minus({ days: i });
+                const key = d.toISODate();
+                labels.push(d.toJSDate());
+                dataPoints.push(Number((map.get(key) || 0).toFixed(2)));
+            }
+        } else if (period === 'ano') {
+            unit = 'month';
+            // últimos 12 meses + mês atual (13 pontos)
+            for (let i = 12; i >= 0; i--) {
+                const d = now.minus({ months: i }).startOf('month');
+                const key = d.toFormat('yyyy-LL');
+                labels.push(d.toJSDate());
+                dataPoints.push(Number((map.get(key) || 0).toFixed(2)));
+            }
+        } else if (period === '5anos') {
+            unit = 'year';
+            // últimos 5 anos + ano atual (6 pontos)
+            for (let i = 5; i >= 0; i--) {
+                const d = now.minus({ years: i }).startOf('year');
+                const key = d.toFormat('yyyy');
+                labels.push(d.toJSDate());
+                dataPoints.push(Number((map.get(key) || 0).toFixed(2)));
+            }
         }
-    });
 
-    // === 6. Lógica da Montagem do Pedido (Por Membro) ===
-
-    function startPedido(familia, membro) { 
-        membroEmEdicao = { familia, membro }; 
-        pedidoMembroTitle.textContent = `Pedido de ${membro} (Família ${familia})`; 
-        
-        const pedidoMembro = pedidoGeral[familia][membro]?.itens || {}; 
-
-        estoqueList.innerHTML = '';
-        
-        estoque.forEach(item => {
-            const currentQty = pedidoMembro[item.sabor] || 0; 
-            
-            // NOVO HTML: Estrutura compacta
-            const itemHtml = `
-                <div class="esfirra-item" data-sabor="${item.sabor}" data-preco="${item.preco.toFixed(2)}">
-                    <div class="item-info">
-                        <h4>${item.sabor}</h4>
-                        <p>R$ ${item.preco.toFixed(2)}</p>
-                    </div>
-                    <div class="quantity-controls">
-                        <button class="qty-btn minus-btn"><span class="material-icons">remove</span></button>
-                        <input type="number" class="qty-input" value="${currentQty}" min="0" readonly>
-                        <button class="qty-btn plus-btn"><span class="material-icons">add</span></button>
-                    </div>
-                </div>
-            `;
-            // FIM NOVO HTML
-            estoqueList.insertAdjacentHTML('beforeend', itemHtml);
-        });
-        
-        salvarPedidoBtn.disabled = false;
-        goToPage('pedido-mobile');
+        return {
+            labels: labels,
+            data: dataPoints,
+            unit: unit
+        };
     }
-    
-    // Adiciona listeners para os botões de + e -
-    estoqueList.addEventListener('click', (e) => {
-        if (!membroEmEdicao) return; 
-        
-        const itemElement = e.target.closest('.esfirra-item');
-        if (!itemElement) return;
 
-        // Garante que o clique foi em um botão
-        const isButton = e.target.closest('.qty-btn');
-        if (!isButton) return;
+    // Inicializa ou atualiza o gráfico
+    function initCharts(period) {
+        const vendasCtx = document.getElementById('vendasChart');
+        if (!vendasCtx) return;
 
-        const input = itemElement.querySelector('.qty-input');
-        let currentQty = parseInt(input.value);
+    const salesData = aggregateSalesData(period);
+    const { labels, data, unit } = salesData;
 
-        if (isButton.classList.contains('plus-btn')) {
-            currentQty++;
-        } else if (isButton.classList.contains('minus-btn')) {
-            currentQty = Math.max(0, currentQty - 1);
-        } else {
-            return;
-        }
-
-        input.value = currentQty;
-    });
-    
-    // BOTÃO DE FINALIZAÇÃO DO MEMBRO
-    /**
-     * Usa alerta modal sem asteriscos e com <b>.
-     */
-    salvarPedidoBtn.addEventListener('click', () => {
-        if (!membroEmEdicao) return; 
-        
-        const { familia, membro } = membroEmEdicao; 
-        const novoPedidoItens = {};
-        let totalEsfirrasSalvas = 0;
-        
-        estoqueList.querySelectorAll('.esfirra-item').forEach(item => {
-            const sabor = item.getAttribute('data-sabor');
-            const qty = parseInt(item.querySelector('.qty-input').value);
-            if (qty > 0) {
-                novoPedidoItens[sabor] = qty;
-                totalEsfirrasSalvas += qty;
-            }
-        });
-        
-        pedidoGeral[familia][membro].itens = novoPedidoItens; 
-        saveState(); 
-        
-        // CORREÇÃO AQUI: Usando <b> ao invés de **
-        const mensagemSucesso = totalEsfirrasSalvas > 0 
-            ? `O pedido de <b>${membro}</b> com <b>${totalEsfirrasSalvas}</b> esfirras foi salvo e finalizado!`
-            : `O pedido de <b>${membro}</b> foi salvo como <b>vazio</b> (0 esfirras).`;
-
-        // 1. Define a ação a ser executada ao fechar o alerta
-        acaoConfirmacao = () => {
-            membroEmEdicao = null; 
-            goToPage('clientes-mobile');
+        const vendasData = {
+            labels: labels,
+            datasets: [{ 
+                label: 'Receita (R$)', 
+                data: data, 
+                borderColor: '#007bff', 
+                backgroundColor: 'rgba(0, 123, 255, 0.1)', 
+                tension: 0.3, 
+                fill: true 
+            }]
         };
 
-        // 2. Mostra o alerta. O botão do modal apenas chama fecharAlerta()
-        mostrarAlerta(
-            "Pedido Finalizado!", 
-            mensagemSucesso, 
-            "check_circle",
-            `<button class="btn primary-btn" onclick="fecharAlerta()">Voltar p/ Clientes</button>`
-        );
-    });
-
-    // === 7. Lógica do Resumo da Tela (HTML) ===
-    
-    function renderResumoTotal() {
-        if (Object.keys(pedidoGeral).length === 0) {
-            resumoTotalContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Adicione membros e seus pedidos para ver o resumo.</p>'; 
-            return;
-        }
-        
-        let resumoHtml = '';
-        let totalGeralPedido = 0;
-        
-        const familiasOrdenadas = Object.keys(pedidoGeral).sort();
-        
-        familiasOrdenadas.forEach(familia => {
-            let totalFamilia = 0;
-            let saboresConsolidados = {}; 
-
-            for (const membro in pedidoGeral[familia]) { 
-                const itens = pedidoGeral[familia][membro]?.itens || {}; 
-                for (const sabor in itens) {
-                    const quantidade = itens[sabor];
-                    if (quantidade > 0) {
-                        const itemEstoque = estoque.find(i => i.sabor === sabor);
-                        const preco = itemEstoque ? itemEstoque.preco : 0;
-                        const total = quantidade * preco;
-                        
-                        if (!saboresConsolidados[sabor]) {
-                            saboresConsolidados[sabor] = { qtd: 0, total: 0 };
+        const chartConfig = {
+            type: 'line',
+            data: vendasData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time', // Escala de tempo habilitada (requer Luxon e adapter)
+                        time: {
+                            unit: unit,
+                            tooltipFormat: unit === 'day' ? 'dd/MM/yyyy' : unit === 'month' ? 'MMM/yyyy' : 'yyyy',
+                            displayFormats: {
+                                day: 'dd/MM',
+                                month: 'MMM/yy',
+                                year: 'yyyy'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: unit === 'day' ? 'Últimos 30 dias' : unit === 'month' ? 'Últimos 12 meses' : 'Últimos 5 Anos'
                         }
-                        saboresConsolidados[sabor].qtd += quantidade;
-                        saboresConsolidados[sabor].total += total;
-                        totalFamilia += total;
+                    },
+                    y: {
+                        beginAtZero: true,
+                         // FORMATO DO EIXO Y: R$
+                        ticks: {
+                            callback: function(value, index, ticks) {
+                                return 'R$ ' + value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Receita (R$)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                         callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += 'R$ ' + context.parsed.y.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                                return label;
+                            }
+                        }
                     }
                 }
             }
+        };
 
-            totalGeralPedido += totalFamilia;
-
-            if (totalFamilia > 0) {
-                resumoHtml += `
-                    <div class="resumo-familia">
-                        <h3>Família: ${familia}</h3>
-                        <table>
-                            <thead>
-                                <tr><th>Sabor</th><th>Qtd</th><th>Total</th></tr>
-                            </thead>
-                            <tbody>
-                `;
-                
-                const saboresOrdenados = Object.keys(saboresConsolidados).sort();
-
-                saboresOrdenados.forEach(sabor => {
-                    const { qtd, total } = saboresConsolidados[sabor];
-                    resumoHtml += `
-                        <tr>
-                            <td>${sabor}</td>
-                            <td>${qtd}</td>
-                            <td>R$ ${total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                });
-
-                resumoHtml += `
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="2">TOTAL FAMÍLIA</td>
-                                    <td>R$ ${totalFamilia.toFixed(2)}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                        
-                        <details>
-                            <summary>Pedidos Detalhados por Membro</summary> 
-                            ${generateDetalhesMembros(familia)} 
-                        </details>
-                        <hr>
-                    </div>
-                `;
-            }
-        });
-        
-        resumoTotalContainer.innerHTML = resumoHtml;
-        
-        if (totalGeralPedido > 0) {
-            resumoTotalContainer.innerHTML += `
-                <h2 style="text-align: center; color: var(--primary-color); margin-top: 20px;">TOTAL GERAL: R$ ${totalGeralPedido.toFixed(2)}</h2>
-            `;
+        if (vendasChartInstance) {
+            // Atualiza o gráfico existente
+            vendasChartInstance.data = vendasData;
+            vendasChartInstance.options = chartConfig.options;
+            vendasChartInstance.update();
         } else {
-            resumoTotalContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">Nenhum pedido ativo para ver o resumo.</p>'; 
+            // Cria um novo gráfico
+            vendasChartInstance = new Chart(vendasCtx.getContext('2d'), chartConfig);
         }
     }
 
-    function generateDetalhesMembros(familia) { 
-        let detalhes = '';
-        const membrosOrdenados = Object.keys(pedidoGeral[familia]).sort(); 
+    function loadDashboardData() {
+        const vendas = JSON.parse(localStorage.getItem('historicoVendas')) || [];
+        const estoque = getEstoque();
 
-        membrosOrdenados.forEach(membro => { 
-            const itens = pedidoGeral[familia][membro]?.itens || {}; 
-            let totalMembro = 0; 
-            let listaItens = '';
-            
-            for (const sabor in itens) {
-                const quantidade = itens[sabor];
-                const itemEstoque = estoque.find(i => i.sabor === sabor);
-                const preco = itemEstoque ? itemEstoque.preco : 0;
-                const total = quantidade * preco;
-                totalMembro += total; 
-                listaItens += `<li>${sabor}: ${quantidade}x (R$ ${total.toFixed(2)})</li>`;
-            }
-            
-            if (totalMembro > 0) { 
-                detalhes += `
-                    <div class="detalhe-cliente"> 
-                        <h4>${membro}: R$ ${totalMembro.toFixed(2)}</h4> 
-                        <ul>${listaItens}</ul>
-                    </div>
-                `;
-            }
+        // 1. Calcular KPIs (Receita e Lucro dos últimos 30 dias)
+        let receitaTotal = 0;
+        let lucroTotal = 0;
+        
+        vendas.forEach(pedido => {
+            receitaTotal += parseFloat(pedido.totalFinal);
+            lucroTotal += parseFloat(pedido.lucroEstimado); 
         });
-        return detalhes;
+
+        const estoqueTotalItens = estoque.reduce((sum, item) => sum + item.estoque, 0);
+        const alertas = estoque.filter(item => item.estoque < config.estoqueMinimoAlerta).length;
+
+        // 2. Atualizar o DOM
+        document.getElementById('kpi-receita').textContent = `R$ ${receitaTotal.toFixed(2)}`;
+        document.getElementById('kpi-lucro').textContent = `R$ ${lucroTotal.toFixed(2)}`;
+        document.getElementById('kpi-estoque-total').textContent = `${estoqueTotalItens} Itens`;
+        document.getElementById('kpi-alertas').textContent = `${alertas} Produtos`;
+
+        // 3. Renderizar Gráfico
+        initCharts(activeChartPeriod);
     }
 
-    // === 8. Lógica de Geração de PDF (jsPDF) ===
+    // ----------------------------------------------------------------------------------
+    // II. FUNÇÕES DE NAVEGAÇÃO E UTILS
+    // ----------------------------------------------------------------------------------
+
+    function getEstoque() {
+        return JSON.parse(localStorage.getItem('acessoriosEstoque')) || [
+            { id: 1, nome: "Cordas Violão Aço", sku: "ACR-010", custo: 15.00, estoque: 50, preco: 29.90 },
+            { id: 2, nome: "Afinador Clip Digital", sku: "AFD-CR", custo: 35.00, estoque: 30, preco: 69.90 }
+        ];
+    }
+
+    function updateEstoque(itensVendidos) {
+        let estoqueAtual = getEstoque();
+        itensVendidos.forEach(itemVendido => {
+            const itemEstoqueIndex = estoqueAtual.findIndex(item => item.id === itemVendido.id);
+            if (itemEstoqueIndex !== -1) {
+                estoqueAtual[itemEstoqueIndex].estoque -= itemVendido.quantidade;
+                if (estoqueAtual[itemEstoqueIndex].estoque < 0) estoqueAtual[itemEstoqueIndex].estoque = 0;
+            }
+        });
+        localStorage.setItem('acessoriosEstoque', JSON.stringify(estoqueAtual));
+    }
     
-    /**
-     * Usa alerta modal sem asteriscos.
-     */
-    gerarPdfBtn.addEventListener('click', () => {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            mostrarAlerta("Erro de Dependência", "A biblioteca <b>jsPDF</b> ou <b>jspdf-autotable</b> não foi carregada. Verifique os scripts no seu HTML.", "error");
-            return;
-        }
+    function setActiveModule(moduleName) {
+        modules.forEach(mod => mod.classList.remove('active'));
+        navLinks.forEach(link => link.classList.remove('active'));
 
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        let y = 20;
-        let totalGeralPedido = 0;
-        let saboresConsolidadosGeral = {};
-        const familiasOrdenadas = Object.keys(pedidoGeral).sort();
-        let detalheData = [];
-        let resumoFamiliaData = []; 
-
-        // --- 1. Cálculo e Coleta de Dados ---
-        
-        familiasOrdenadas.forEach(familia => {
-            let totalFamilia = 0;
-            let membrosComPedido = 0; 
-            
-            for (const membro in pedidoGeral[familia]) { 
-                const itens = pedidoGeral[familia][membro]?.itens || {}; 
-                let totalMembro = 0; 
-                let resumoMembro = []; 
-                
-                for (const sabor in itens) {
-                    const quantidade = itens[sabor];
-                    if (quantidade > 0) {
-                        const itemEstoque = estoque.find(i => i.sabor === sabor);
-                        const preco = itemEstoque ? itemEstoque.preco : 0;
-                        const total = quantidade * preco;
-                        
-                        // Consolidação Geral (Resumo por sabor)
-                        if (!saboresConsolidadosGeral[sabor]) {
-                            saboresConsolidadosGeral[sabor] = { qtd: 0, total: 0 };
-                        }
-                        saboresConsolidadosGeral[sabor].qtd += quantidade;
-                        saboresConsolidadosGeral[sabor].total += total;
-                        
-                        totalMembro += total; 
-                        totalFamilia += total;
-                        
-                        resumoMembro.push(`${sabor} (${quantidade}x)`); 
-                    }
-                }
-
-                // Adiciona a linha de detalhe por Membro
-                if (totalMembro > 0) { 
-                    detalheData.push([
-                        `${membro} (Família ${familia})`, 
-                        resumoMembro.join(', '), 
-                        `R$ ${totalMembro.toFixed(2)}` 
-                    ]);
-                    membrosComPedido++;
-                }
+        const activeModule = document.getElementById(moduleName);
+        if (activeModule) {
+            activeModule.classList.add('active');
+            const activeLink = document.querySelector(`.nav-link[data-module="${moduleName}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+                moduleTitle.textContent = activeLink.textContent.trim() + ' - Herkon'; 
             }
-            
-            totalGeralPedido += totalFamilia;
+        }
+        
+        // Funções de carregamento específicas do módulo
+        if (moduleName === 'dashboard') loadDashboardData();
+        if (moduleName === 'estoque') {
+             loadEstoque();
+             loadMovimentacaoDropdown();
+           loadMovimentacoesHistory();
+        }
+        if (moduleName === 'custos') loadConfigForm();
+        if (moduleName === 'vendas') {
+            loadVendasHistory();
+            loadEstoqueDropdown();
+        }
+        if (moduleName === 'relatorios') loadRelatorios();
+        if (moduleName === 'configuracoes') loadConfiguracoes();
 
-            // Adiciona o resumo da família
-            if (totalFamilia > 0) {
-                resumoFamiliaData.push([
-                    `Família ${familia}`,
-                    membrosComPedido,
-                    `R$ ${totalFamilia.toFixed(2)}`
-                ]);
+        // Oculta formulários ao mudar de módulo
+        formCadastro.style.display = 'none';
+        formMovimentacao.style.display = 'none';
+        btnAddItem.style.display = 'inline-block';
+        btnMovimentacao.style.display = 'inline-block';
+        formVenda.style.display = 'none';
+        btnNovaVenda.style.display = 'inline-block';
+    }
+
+    // ----------------------------------------------------------------------------------
+    // III. MÓDULO ESTOQUE
+    // ----------------------------------------------------------------------------------
+    
+    function loadEstoque() {
+        const itens = getEstoque();
+        tabelaEstoqueBody.innerHTML = '';
+        
+        itens.forEach(item => {
+            const row = tabelaEstoqueBody.insertRow();
+            row.insertCell().textContent = item.nome;
+            row.insertCell().textContent = item.sku;
+            row.insertCell().textContent = item.estoque;
+            row.insertCell().textContent = `R$ ${item.custo.toFixed(2)}`;
+            row.insertCell().textContent = `R$ ${item.preco.toFixed(2)}`;
+            
+            const actionCell = row.insertCell();
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Editar';
+            editBtn.className = 'btn btn-primary btn-sm';
+            editBtn.style.marginRight = '5px';
+            editBtn.onclick = () => editItem(item.id);
+            actionCell.appendChild(editBtn);
+        });
+        localStorage.setItem('acessoriosEstoque', JSON.stringify(itens));
+    }
+    
+    window.editItem = function(itemId) {
+        const item = getEstoque().find(i => i.id === itemId);
+        if (!item) return;
+
+        formMovimentacao.style.display = 'none';
+        btnMovimentacao.style.display = 'inline-block';
+
+        formCadastroTitle.textContent = "Editar Acessório";
+        itemIdEdit.value = item.id;
+        document.getElementById('nome').value = item.nome;
+        document.getElementById('sku').value = item.sku;
+        document.getElementById('custo').value = item.custo;
+        document.getElementById('preco_venda').value = item.preco;
+        estoqueAtualInput.value = item.estoque;
+        estoqueAtualInput.readOnly = true; 
+        
+        formCadastro.style.display = 'block';
+        btnAddItem.style.display = 'none';
+    }
+
+    itemForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const id = parseInt(itemIdEdit.value);
+        const nome = document.getElementById('nome').value;
+        const sku = document.getElementById('sku').value;
+        const custo = parseFloat(document.getElementById('custo').value);
+        const preco = parseFloat(document.getElementById('preco_venda').value);
+
+        let itens = getEstoque();
+
+        if (id) {
+            const itemIndex = itens.findIndex(i => i.id === id);
+            if (itemIndex !== -1) {
+                itens[itemIndex].nome = nome;
+                itens[itemIndex].sku = sku;
+                itens[itemIndex].custo = custo; 
+                itens[itemIndex].preco = preco;
+                alert(`Acessório "${nome}" atualizado com sucesso!`);
             }
-        });
-
-        if (totalGeralPedido === 0) {
-            mostrarAlerta("Aviso", "Não há pedidos ativos para gerar o PDF.", "info");
-            return;
-        }
-
-        // --- 2. Geração da Primeira Tabela: RESUMO CONSOLIDADO GERAL ---
-
-        doc.setFontSize(18);
-        doc.text("Resumo do Pedido de Esfirras", 105, y, null, null, "center");
-        y += 10;
-        doc.setFontSize(10);
-        doc.text(`Data: ${new Date().toLocaleDateString()}`, 105, y, null, null, "center");
-        y += 15;
-        
-        doc.setFontSize(14);
-        doc.text("1. RESUMO GERAL POR SABOR (Para Produção)", 20, y);
-        y += 7;
-
-        const resumoGeralTableData = Object.keys(saboresConsolidadosGeral).sort().map(sabor => {
-            const item = saboresConsolidadosGeral[sabor];
-            return [
-                sabor,
-                item.qtd,
-                `R$ ${item.total.toFixed(2)}`
-            ];
-        });
-        
-        doc.autoTable({
-            startY: y,
-            head: [['Sabor', 'Quantidade Total', 'Subtotal']],
-            body: resumoGeralTableData,
-            foot: [['TOTAL GERAL DO PEDIDO', '', `R$ ${totalGeralPedido.toFixed(2)}`]],
-            theme: 'grid',
-            styles: { fontSize: 10, font: 'helvetica' },
-            columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' } }
-        });
-        y = doc.autoTable.previous.finalY + 15;
-
-        // --- 3. Geração da Segunda Tabela: RESUMO POR FAMÍLIA ---
-        
-        if (resumoFamiliaData.length > 0) {
-            doc.setFontSize(14);
-            doc.text("2. RESUMO POR FAMÍLIA (Subtotais)", 20, y);
-            y += 7;
-
-            doc.autoTable({
-                startY: y,
-                head: [['Família', 'Membros (com pedido)', 'Total Família']], 
-                body: resumoFamiliaData,
-                theme: 'grid',
-                styles: { fontSize: 10, font: 'helvetica' },
-                columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' } }
-            });
-            y = doc.autoTable.previous.finalY + 15;
-        }
-
-
-        // --- 4. Geração da Terceira Tabela: DETALHAMENTO POR MEMBRO ---
-
-        if (detalheData.length > 0) {
-            doc.setFontSize(14);
-            doc.text("3. DETALHAMENTO POR MEMBRO", 20, y); 
-            y += 7;
-            
-            doc.autoTable({
-                startY: y,
-                head: [['Membro/Família', 'Itens Pedidos', 'Total']], 
-                body: detalheData,
-                theme: 'grid',
-                styles: { fontSize: 9, font: 'helvetica', cellPadding: 2 },
-                columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 100 }, 2: { halign: 'right', cellWidth: 35 } }
-            });
-            y = doc.autoTable.previous.finalY + 10;
+        } else {
+            const newId = itens.length > 0 ? Math.max(...itens.map(i => i.id)) + 1 : 1;
+            const novoItem = { id: newId, nome, sku, custo, estoque: 0, preco };
+            itens.push(novoItem);
+            alert(`Acessório "${nome}" adicionado com sucesso (Estoque inicial zero).`);
         }
         
-        // Finalização
-        if (totalGeralPedido > 0) {
-            doc.setFontSize(16);
-            doc.text(`TOTAL GERAL FINAL: R$ ${totalGeralPedido.toFixed(2)}`, 105, y, null, null, "center");
-        }
-
-        doc.save("Pedido_Esfirras_Completo.pdf");
+        localStorage.setItem('acessoriosEstoque', JSON.stringify(itens));
         
-        mostrarAlerta("PDF Gerado!", "O arquivo <b>Pedido_Esfirras_Completo.pdf</b> foi baixado com sucesso.", "file_download");
+        itemIdEdit.value = '';
+        itemForm.reset();
+        formCadastro.style.display = 'none';
+        btnAddItem.style.display = 'inline-block';
+        estoqueAtualInput.readOnly = false;
+        formCadastroTitle.textContent = "Adicionar Novo Acessório";
+        loadEstoque();
     });
 
-    // === 9. Inicialização ===
-    goToPage('clientes-mobile');
+    btnAddItem.addEventListener('click', () => {
+        formMovimentacao.style.display = 'none';
+        btnMovimentacao.style.display = 'inline-block';
+
+        formCadastroTitle.textContent = "Adicionar Novo Acessório";
+        itemIdEdit.value = '';
+        itemForm.reset();
+        estoqueAtualInput.value = 0;
+        estoqueAtualInput.readOnly = true; 
+        // Aplica preço sugerido com base no custo (após reset, custo estará vazio até usuário digitar)
+        applyDefaultMarginToPrice();
+
+        formCadastro.style.display = 'block';
+        btnAddItem.style.display = 'none';
+    });
+
+    btnCancelar.addEventListener('click', () => {
+        formCadastro.style.display = 'none';
+        btnAddItem.style.display = 'inline-block';
+        itemIdEdit.value = '';
+        itemForm.reset();
+        estoqueAtualInput.readOnly = false;
+    });
+
+    function loadMovimentacaoDropdown() {
+        const itens = getEstoque();
+        const datalist = document.getElementById('mov-items-list');
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        // Preenche datalist com value contendo id e nome para facilitar lookup
+        itens.forEach(item => {
+            const option = document.createElement('option');
+            // value será no formato: ID|Nome para depois buscarmos por id
+            option.value = `${item.id}|${item.nome} (Estoque: ${item.estoque})`;
+            datalist.appendChild(option);
+        });
+        // Limpa o input atual se o item não existir mais
+        if (movItemSelect.value) {
+            const exists = itens.some(i => movItemSelect.value.includes(`${i.id}|`));
+            if (!exists) movItemSelect.value = '';
+        }
+    }
+
+    // Histórico de movimentações: grava e carrega
+    function saveMovimentacaoHistorico(record) {
+        const hist = JSON.parse(localStorage.getItem('historicoMovimentacoes')) || [];
+        hist.unshift(record);
+        localStorage.setItem('historicoMovimentacoes', JSON.stringify(hist));
+    }
+
+    function loadMovimentacoesHistory() {
+        const hist = JSON.parse(localStorage.getItem('historicoMovimentacoes')) || [];
+        const tbody = document.querySelector('#tabela-movimentacoes tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        hist.forEach(rec => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = `#${rec.id.toString().slice(-6)}`;
+            row.insertCell().textContent = rec.itemNome;
+            const tipoCell = row.insertCell();
+            const tipoRaw = (rec.tipo || '').toLowerCase();
+            if (tipoRaw === 'entrada') {
+                tipoCell.textContent = 'Entrada';
+                tipoCell.className = 'tipo-entrada';
+            } else if (tipoRaw === 'saida' || tipoRaw === 'saída') {
+                tipoCell.textContent = 'Saída';
+                tipoCell.className = 'tipo-saida';
+            } else {
+                tipoCell.textContent = rec.tipo || '';
+            }
+            row.insertCell().textContent = rec.qtdAnterior;
+            row.insertCell().textContent = rec.qtdMovimentacao;
+            row.insertCell().textContent = rec.qtdAtual;
+            row.insertCell().textContent = rec.data;
+            row.insertCell().textContent = rec.usuario || '—';
+            row.insertCell().textContent = rec.motivo || '';
+        });
+    }
+
+    // Mostrar/ocultar campo de relatório quando tipo === 'saida'
+    const movTipoSelect = document.getElementById('mov-tipo');
+    const movRelatorioContainer = document.getElementById('mov-relatorio-container');
+    const movRelatorioTextarea = document.getElementById('mov-relatorio');
+    if (movTipoSelect) {
+        movTipoSelect.addEventListener('change', function() {
+            if (this.value === 'saida') {
+                if (movRelatorioContainer) movRelatorioContainer.style.display = 'block';
+            } else {
+                if (movRelatorioContainer) movRelatorioContainer.style.display = 'none';
+                if (movRelatorioTextarea) movRelatorioTextarea.value = '';
+            }
+        });
+    }
+
+    btnMovimentacao.addEventListener('click', () => {
+        formCadastro.style.display = 'none';
+        btnAddItem.style.display = 'inline-block';
+
+        formMovimentacao.style.display = 'block';
+        btnMovimentacao.style.display = 'none';
+        loadMovimentacaoDropdown();
+        movForm.reset();
+    });
+
+    btnCancelarMovimentacao.addEventListener('click', () => {
+        formMovimentacao.style.display = 'none';
+        btnMovimentacao.style.display = 'inline-block';
+        movForm.reset();
+    });
+
+    movForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // movItemSelect is now an input with value 'id|nome (...)' or user can type the full name
+        const rawVal = movItemSelect.value || '';
+        let itemId = null;
+        // If user selected an option we encoded as 'id|...'
+        if (rawVal.includes('|')) {
+            const parts = rawVal.split('|');
+            itemId = parseInt(parts[0]);
+        } else {
+            // fallback: try to match by name start
+            const itens = getEstoque();
+            const match = itens.find(i => rawVal.toLowerCase().startsWith(i.nome.toLowerCase()));
+            if (match) itemId = match.id;
+        }
+        
+        const tipo = document.getElementById('mov-tipo').value;
+        const quantidade = parseInt(document.getElementById('mov-quantidade').value);
+        
+        if (!itemId || quantidade <= 0) return alert('Selecione um item e a quantidade.');
+
+        // Se for saída, exige preenchimento do relatório
+        if (tipo === 'saida') {
+            const motivo = (movRelatorioTextarea && movRelatorioTextarea.value) ? movRelatorioTextarea.value.trim() : '';
+            if (!motivo) {
+                if (movRelatorioContainer) movRelatorioContainer.style.display = 'block';
+                return alert('Para registrar uma saída, preencha o relatório com o motivo da saída.');
+            }
+        }
+
+        let itens = getEstoque();
+        const itemIndex = itens.findIndex(i => i.id === itemId);
+        
+        if (itemIndex === -1) return;
+
+        const itemNome = itens[itemIndex].nome;
+
+        if (tipo === 'entrada') {
+            const qtdAnterior = itens[itemIndex].estoque;
+            itens[itemIndex].estoque += quantidade;
+            const qtdAtual = itens[itemIndex].estoque;
+            // salva histórico
+            const rec = {
+                id: Date.now(),
+                itemId: itemId,
+                itemNome: itemNome,
+                tipo: 'entrada',
+                qtdAnterior: qtdAnterior,
+                qtdMovimentacao: quantidade,
+                qtdAtual: qtdAtual,
+                data: new Date().toLocaleString('pt-BR'),
+                usuario: 'Sr. Herbert',
+                motivo: ''
+            };
+            saveMovimentacaoHistorico(rec);
+            alert(`Entrada de ${quantidade} unidades de ${itemNome} registrada. Novo estoque: ${itens[itemIndex].estoque}`);
+        } else if (tipo === 'saida') {
+            if (itens[itemIndex].estoque < quantidade) {
+                return alert(`Erro: Estoque insuficiente. Só há ${itens[itemIndex].estoque} unidades de ${itemNome}.`);
+            }
+            const qtdAnterior = itens[itemIndex].estoque;
+            itens[itemIndex].estoque -= quantidade;
+            const qtdAtual = itens[itemIndex].estoque;
+            const motivo = movRelatorioTextarea ? movRelatorioTextarea.value.trim() : '';
+            const rec = {
+                id: Date.now(),
+                itemId: itemId,
+                itemNome: itemNome,
+                tipo: 'saida',
+                qtdAnterior: qtdAnterior,
+                qtdMovimentacao: -Math.abs(quantidade),
+                qtdAtual: qtdAtual,
+                data: new Date().toLocaleString('pt-BR'),
+                usuario: 'Sr. Herbert',
+                motivo: motivo
+            };
+            saveMovimentacaoHistorico(rec);
+            alert(`Saída de ${quantidade} unidades de ${itemNome} registrada. Motivo: ${motivo}. Novo estoque: ${itens[itemIndex].estoque}`);
+        }
+
+        localStorage.setItem('acessoriosEstoque', JSON.stringify(itens));
+        
+        formMovimentacao.style.display = 'none';
+        btnMovimentacao.style.display = 'inline-block';
+        loadEstoque();
+        loadMovimentacoesHistory();
+        loadMovimentacaoDropdown();
+    });
+
+    // ----------------------------------------------------------------------------------
+    // IV. MÓDULO VENDAS
+    // ----------------------------------------------------------------------------------
+
+    function calcularCustoGasolina(km) {
+        if (km <= 0) return 0;
+        const litros = km / config.consumoMedio;
+        return litros * config.precoLitro;
+    }
+
+    function updateResumoVenda() {
+        const km = parseFloat(kmTotalInput.value) || 0;
+        const custoGasolina = calcularCustoGasolina(km);
+        
+        const totalItens = carrinho.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const totalFinal = totalItens + custoGasolina;
+
+        custoGasolinaDisplay.textContent = `R$ ${custoGasolina.toFixed(2)}`;
+        totalItensDisplay.textContent = `R$ ${totalItens.toFixed(2)}`;
+        totalFinalDisplay.textContent = `R$ ${totalFinal.toFixed(2)}`;
+        
+        return { custoGasolina, totalItens, totalFinal };
+    }
+
+    kmTotalInput.addEventListener('input', updateResumoVenda);
+
+    function loadEstoqueDropdown() {
+        const itens = getEstoque();
+        selectItemEstoque.innerHTML = '<option value="">-- Selecione um Acessório --</option>';
+        itens.forEach(item => {
+            if (item.estoque > 0) {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.nome} (R$ ${item.preco.toFixed(2)} | Estoque: ${item.estoque})`;
+                option.setAttribute('data-preco', item.preco);
+                option.setAttribute('data-custo', item.custo);
+                option.setAttribute('data-estoque', item.estoque);
+                selectItemEstoque.appendChild(option);
+            }
+        });
+    }
+
+    btnAdicionarItem.addEventListener('click', () => {
+        const selectedOption = selectItemEstoque.options[selectItemEstoque.selectedIndex];
+        const itemId = parseInt(selectedOption.value);
+        const quantidade = parseInt(document.getElementById('qtd-item').value);
+        const estoqueDisponivel = parseInt(selectedOption.getAttribute('data-estoque'));
+
+        if (!itemId || quantidade <= 0) {
+            alert('Selecione um item e insira uma quantidade válida.');
+            return;
+        }
+        
+        if (quantidade > estoqueDisponivel) {
+            alert(`Estoque insuficiente. Máximo disponível: ${estoqueDisponivel}`);
+            return;
+        }
+
+        const preco = parseFloat(selectedOption.getAttribute('data-preco'));
+        const custo = parseFloat(selectedOption.getAttribute('data-custo'));
+        const nome = selectedOption.textContent.split('(')[0].trim();
+
+        const itemExistente = carrinho.find(item => item.id === itemId);
+        if (itemExistente) {
+            if (itemExistente.quantidade + quantidade > estoqueDisponivel) {
+                alert(`Estoque insuficiente para a quantidade total desejada. Máximo: ${estoqueDisponivel}`);
+                return;
+            }
+            itemExistente.quantidade += quantidade;
+        } else {
+            carrinho.push({ id: itemId, nome, preco, custo, quantidade });
+        }
+        
+        renderCarrinho();
+        updateResumoVenda();
+    });
+    
+    function renderCarrinho() {
+        tabelaItensVendaBody.innerHTML = '';
+        carrinho.forEach((item, index) => {
+            const row = tabelaItensVendaBody.insertRow();
+            row.insertCell().textContent = item.nome;
+            row.insertCell().textContent = `R$ ${item.preco.toFixed(2)}`;
+            row.insertCell().textContent = item.quantidade;
+            row.insertCell().textContent = `R$ ${(item.preco * item.quantidade).toFixed(2)}`;
+            
+            const actionCell = row.insertCell();
+            const btn = document.createElement('button');
+            btn.textContent = 'Remover';
+            btn.className = 'btn btn-danger btn-sm';
+            btn.onclick = () => {
+                carrinho.splice(index, 1);
+                renderCarrinho();
+                updateResumoVenda();
+            };
+            actionCell.appendChild(btn);
+        });
+    }
+
+    vendaForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (carrinho.length === 0) {
+            alert('Adicione pelo menos um item ao pedido.');
+            return;
+        }
+        
+        const clienteNome = document.getElementById('cliente_nome').value;
+        const kmTotal = parseFloat(document.getElementById('km_total').value) || 0;
+        const { custoGasolina, totalItens, totalFinal } = updateResumoVenda();
+
+        const cmvTotal = carrinho.reduce((sum, item) => sum + (item.custo * item.quantidade), 0);
+        const lucroEstimado = totalItens - cmvTotal - custoGasolina;
+
+        const novoPedido = {
+            id: Date.now(),
+            data: new Date().toLocaleDateString('pt-BR'),
+            cliente: clienteNome,
+            kmTotal: kmTotal,
+            totalFinal: totalFinal.toFixed(2),
+            custoGasolina: custoGasolina.toFixed(2),
+            lucroEstimado: lucroEstimado.toFixed(2),
+            itens: carrinho
+        };
+
+        const pedidos = JSON.parse(localStorage.getItem('historicoVendas')) || [];
+        pedidos.unshift(novoPedido);
+        localStorage.setItem('historicoVendas', JSON.stringify(pedidos));
+        
+        updateEstoque(carrinho); 
+
+        alert(`Pedido finalizado! Total: R$ ${totalFinal.toFixed(2)}. Lucro Estimado: R$ ${lucroEstimado.toFixed(2)}. Estoque atualizado.`);
+        
+        vendaForm.reset();
+        carrinho = [];
+        renderCarrinho();
+        updateResumoVenda();
+        loadVendasHistory();
+        loadEstoqueDropdown();
+        formVenda.style.display = 'none';
+        btnNovaVenda.style.display = 'inline-block';
+    });
+
+    function loadVendasHistory() {
+        const pedidos = JSON.parse(localStorage.getItem('historicoVendas')) || [];
+        tabelaVendasBody.innerHTML = '';
+        
+        pedidos.forEach(pedido => {
+            const row = tabelaVendasBody.insertRow();
+            row.insertCell().textContent = `#${pedido.id.toString().slice(-4)}`;
+            row.insertCell().textContent = pedido.data;
+            row.insertCell().textContent = pedido.cliente;
+            row.insertCell().textContent = `${pedido.kmTotal} km`;
+            row.insertCell().textContent = `R$ ${pedido.totalFinal}`;
+            row.insertCell().textContent = `R$ ${pedido.custoGasolina}`;
+            
+            const lucroCell = row.insertCell();
+            lucroCell.textContent = `R$ ${pedido.lucroEstimado}`;
+            lucroCell.style.color = parseFloat(pedido.lucroEstimado) > 0 ? '#28a745' : '#dc3545';
+        });
+    }
+
+    btnNovaVenda.addEventListener('click', () => {
+        formVenda.style.display = 'block';
+        btnNovaVenda.style.display = 'none';
+        carrinho = [];
+        renderCarrinho();
+        updateResumoVenda();
+        loadEstoqueDropdown();
+    });
+
+    btnCancelarVenda.addEventListener('click', () => {
+        formVenda.style.display = 'none';
+        btnNovaVenda.style.display = 'inline-block';
+        vendaForm.reset();
+        carrinho = [];
+        renderCarrinho();
+        updateResumoVenda();
+    });
+
+    // ----------------------------------------------------------------------------------
+    // V. MÓDULO CUSTOS
+    // ----------------------------------------------------------------------------------
+
+    function loadConfigForm() {
+        document.getElementById('preco_litro').value = config.precoLitro;
+        document.getElementById('consumo_medio').value = config.consumoMedio;
+        document.getElementById('margem_padrao').value = config.margemPadrao;
+    }
+
+    configForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        config.precoLitro = parseFloat(document.getElementById('preco_litro').value);
+        config.consumoMedio = parseInt(document.getElementById('consumo_medio').value);
+        config.margemPadrao = parseInt(document.getElementById('margem_padrao').value);
+
+        localStorage.setItem('precificacaoConfig', JSON.stringify(config));
+        alert('Configurações de precificação salvas com sucesso!');
+        loadConfigForm();
+    });
+
+    // ----------------------------------------------------------------------------------
+    // VI. MÓDULO RELATÓRIOS
+    // ----------------------------------------------------------------------------------
+
+    function loadRelatorios() {
+        const vendas = JSON.parse(localStorage.getItem('historicoVendas')) || [];
+        const estoque = getEstoque();
+        
+        // 1. Processar Lucratividade
+        const resumoLucratividade = {};
+        vendas.forEach(pedido => {
+            pedido.itens.forEach(itemVendido => {
+                const itemId = itemVendido.id;
+                const quantidade = itemVendido.quantidade;
+                const receitaItem = itemVendido.preco * quantidade;
+                const cmvItem = itemVendido.custo * quantidade;
+                
+                if (!resumoLucratividade[itemId]) {
+                    const itemData = estoque.find(i => i.id === itemId) || { nome: itemVendido.nome };
+                    resumoLucratividade[itemId] = {
+                        nome: itemData.nome,
+                        qtdVendida: 0,
+                        receitaBruta: 0,
+                        cmvTotal: 0
+                    };
+                }
+                resumoLucratividade[itemId].qtdVendida += quantidade;
+                resumoLucratividade[itemId].receitaBruta += receitaItem;
+                resumoLucratividade[itemId].cmvTotal += cmvItem;
+            });
+        });
+
+        tabelaLucratividadeBody.innerHTML = '';
+        Object.values(resumoLucratividade).forEach(item => {
+            const lucroBruto = item.receitaBruta - item.cmvTotal;
+            const margem = item.receitaBruta > 0 ? (lucroBruto / item.receitaBruta) * 100 : 0;
+            
+            const row = tabelaLucratividadeBody.insertRow();
+            row.insertCell().textContent = item.nome;
+            row.insertCell().textContent = item.qtdVendida;
+            row.insertCell().textContent = `R$ ${item.receitaBruta.toFixed(2)}`;
+            row.insertCell().textContent = `R$ ${item.cmvTotal.toFixed(2)}`;
+            row.insertCell().textContent = `R$ ${lucroBruto.toFixed(2)}`;
+            row.insertCell().textContent = `${margem.toFixed(1)}%`;
+        });
+
+        // 2. Processar Giro de Estoque
+        tabelaGiroBody.innerHTML = '';
+        estoque.forEach(item => {
+            const itemVendido = resumoLucratividade[item.id] || { qtdVendida: 0 };
+            const qtdVendida = itemVendido.qtdVendida;
+            
+            let estoqueEmDias = 'N/A';
+            let status = 'Baixo';
+
+            const row = tabelaGiroBody.insertRow();
+            
+            if (qtdVendida > 0) {
+                const vendaMediaDiaria = qtdVendida / 30;
+                estoqueEmDias = (item.estoque / vendaMediaDiaria).toFixed(0);
+                
+                if (estoqueEmDias > 60) {
+                    status = 'Alto (Risco de Obsoletismo)';
+                    row.style.backgroundColor = '#fff3cd'; 
+                } else if (estoqueEmDias > 30) {
+                    status = 'Ideal';
+                } else if (estoqueEmDias > 0) {
+                    status = 'Médio';
+                }
+            } else if (item.estoque > 0) {
+                 status = 'Parado (Sem Vendas)';
+                 estoqueEmDias = 'Infinito';
+                 row.style.backgroundColor = '#f8d7da'; 
+            }
+
+            row.insertCell().textContent = item.nome;
+            row.insertCell().textContent = item.estoque;
+            row.insertCell().textContent = qtdVendida;
+            row.insertCell().textContent = estoqueEmDias;
+            row.insertCell().textContent = status;
+        });
+    }
+
+    // ----------------------------------------------------------------------------------
+    // VII. MÓDULO CONFIGURAÇÕES
+    // ----------------------------------------------------------------------------------
+
+    function loadConfiguracoes() {
+        estoqueMinimoInput.value = config.estoqueMinimoAlerta;
+    }
+
+    estoqueMinimoForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        config.estoqueMinimoAlerta = parseInt(estoqueMinimoInput.value);
+        localStorage.setItem('precificacaoConfig', JSON.stringify(config));
+        alert('Regra de Estoque Mínimo salva com sucesso!');
+        loadDashboardData(); 
+    });
+
+
+    // ----------------------------------------------------------------------------------
+    // VIII. INICIALIZAÇÃO E LISTENERS
+    // ----------------------------------------------------------------------------------
+    
+    // Listeners de Navegação
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            setActiveModule(this.getAttribute('data-module'));
+        });
+    });
+
+    // Listeners dos Controles do Gráfico
+    chartControlButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // 1. Atualiza o estado ativo dos botões
+            chartControlButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 2. Define o novo período ativo
+            activeChartPeriod = this.getAttribute('data-period');
+            
+            // 3. Redesenha o gráfico
+            initCharts(activeChartPeriod);
+        });
+    });
+
+    // Inicialização do Dashboard
+    setActiveModule('dashboard'); 
 });
